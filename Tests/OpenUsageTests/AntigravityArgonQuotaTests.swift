@@ -109,6 +109,23 @@ final class AntigravityArgonQuotaTests: XCTestCase {
         ))
     }
 
+    func testArgonWTUWeeklyBucketParsesBareAndWrapped() throws {
+        let group = """
+        {"displayName":"Gemini 4 Argon",
+         "description":"For paid Pro plans, Argon quota is separate. Higher Argon quota (included as part of the larger Gemini quota bucket) is available on Ultra plans.",
+         "buckets":[{"bucketId":"gemini-argon-wtu-weekly","displayName":"Gemini 4 Argon Weekly Limit",
+                     "window":"weekly","remainingFraction":1.0,"resetTime":"2026-10-22T23:24:33Z"}]}
+        """
+        let reset = try XCTUnwrap(OpenUsageISO8601.date(from: "2026-10-22T23:24:33Z"))
+        let expected = MetricLine.progress(
+            label: "Argon Weekly", used: 0, limit: 100, format: .percent,
+            resetsAt: reset, periodDurationMs: MetricPeriod.weekMs
+        )
+        for json in ["{\"groups\":[\(group)]}", "{\"response\":{\"groups\":[\(group)]}}"] {
+            XCTAssertEqual(AntigravityUsageMapper.parseQuotaSummary(Data(json.utf8)), [expected])
+        }
+    }
+
     func testMalformedGroupNameDoesNotInvalidateSharedBuckets() {
         let data = Data(#"{"groups":[{"displayName":42,"buckets":[{"bucketId":"gemini-5h","remainingFraction":0.8}]}]}"#.utf8)
         let lines = AntigravityUsageMapper.parseQuotaSummary(data)

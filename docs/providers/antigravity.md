@@ -18,7 +18,7 @@ Antigravity reports two shared quota pools, each with a rolling 5-hour and a wee
 
 When Antigravity reports your subscription tier (such as `Pro` or `Ultra`), OpenUsage shows it beside the provider name.
 
-The shared Gemini pool is named Session and Weekly to match the other providers' rows. Argon's separate weekly quota has its own meter. The shared non-Gemini pool (Claude and GPT models) is shown under the Claude name, like Codex's Spark pair. The quota API reports fractions, while token usage and estimated spend come separately from local conversation databases.
+The shared Gemini pool is named Session and Weekly to match the other providers' rows. Paid Pro plans have a separate Argon weekly quota; Ultra includes Argon in its larger shared Gemini quota, shown by Session and Weekly. The shared non-Gemini pool (Claude and GPT models) is shown under the Claude name, like Codex's Spark pair. The quota API reports fractions, while token usage and estimated spend come separately from local conversation databases.
 
 Argon Weekly reads **No data** when the response does not provide a usable separate weekly quota, including older endpoints and accounts without access. OpenUsage uses the returned quota information rather than guessing availability from the plan name.
 
@@ -50,7 +50,7 @@ The transcript logs don't include token accounting, so they aren't used. Missing
 - **"Start Antigravity or run `agy`…"** — sign in to the Antigravity app (or run `agy`) so a usable token exists, then refresh.
 - **"Couldn't read Antigravity credentials…"** — unlock Keychain or sign in to Antigravity again. OpenUsage will not use its cached access token until the current login can be verified.
 - **The weekly meters show "No data"** — your Antigravity build doesn't expose the quota-summary endpoint yet (only newer builds do). The 5-hour meters still work from the older endpoints; updating Antigravity brings the weekly meters back.
-- **Argon Weekly shows "No data"** — the response did not include an enabled, usable Argon weekly quota. This can happen on free or trial accounts, during rollout, or with older endpoints. A model appearing in Antigravity's picker does not mean its quota is available.
+- **Argon Weekly shows "No data"** — the response did not include an enabled, usable separate Argon weekly quota. On Ultra, Argon uses the shared Gemini quota shown by Session and Weekly. Older endpoints may also omit the separate quota. A model appearing in Antigravity's picker does not mean its quota is available.
 - **A meter shows "No data"** — that pool/window wasn't in the latest response (some tiers only report certain windows). The other meters still update.
 - **Spend or usage history shows "No data"** — Antigravity hasn't written usable conversation databases yet. Run an Antigravity or `agy` session, then refresh.
 - **Where did the Gemini Pro and Flash meters go?** — merged: both models draw from the one shared Gemini pool, which is now the single Session meter.
@@ -59,6 +59,8 @@ The transcript logs don't include token accounting, so they aren't used. Missing
 ## Under the hood
 
 Best source first: the local language server discovered by scanning for the `language_server` / `agy` process and reading its CSRF token and listening ports; then Google Cloud Code using the Keychain token, refreshed via Google OAuth when needed. OpenUsage binds its short-lived refreshed-token cache to a one-way fingerprint of the current Keychain refresh credential. Logout, account changes, legacy caches, and expired or malformed entries cannot reuse a previous account's access token. On each source OpenUsage asks the quota-summary endpoint first (`RetrieveUserQuotaSummary` on the language server, `v1internal:retrieveUserQuotaSummary` on Cloud Code).
+
+Cloud Code requests try the production endpoint first, then the daily endpoint after a network error or an error response other than a sign-in rejection. The daily endpoint can return fewer quota pools; any omitted rows show **No data** for that refresh.
 
 The four shared-pool windows use their known bucket IDs. Argon Weekly requires the exact `Gemini 4 Argon` group and one explicitly weekly bucket with a separate ID and usable remaining fraction. Disabled, malformed, or ambiguous Argon quotas are omitted.
 
