@@ -638,11 +638,8 @@ actor ClaudeLogUsageScanner {
     /// Bucket deduplicated entries into local calendar days. Cost mode "auto": a line's `costUSD`
     /// when present, else tokens priced through `pricing`.
     ///
-    /// Entries that can't be priced (an unknown model, or unattributed tokens with no carried cost)
-    /// are excluded from every displayed total — tokens, dollars, the trend, and the model breakdown —
-    /// because mixing measured tokens with unpriceable ones makes the figures incoherent. An unknown
-    /// model's name lands in `unknownModelsByDay` (the tile's warning triangle), the only place
-    /// unpriceable usage surfaces.
+    /// An unknown model's tokens still count, with no cost, and its name lands in `unknownModelsByDay`
+    /// (the tile's warning triangle). Unattributed tokens with no carried cost are dropped.
     static func aggregate(entries: [Entry], since: Date, pricing: ModelPricing) -> LogUsageScan {
         var accumulator = DailyUsageAccumulator()
 
@@ -660,7 +657,7 @@ actor ClaudeLogUsageScanner {
                 cost = estimated
             } else {
                 if let model = trimmedModel, entry.tokens.totalTokens > 0 {
-                    accumulator.addUnknownModel(day: day, model: model)
+                    accumulator.addUnknownModel(day: day, model: model, tokens: entry.tokens.totalTokens)
                 }
                 continue
             }

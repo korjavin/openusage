@@ -205,7 +205,8 @@ final class PiUsageScannerTests: XCTestCase {
     func testUnpriceableZeroCostBecomesUnknownModel() {
         let entry = PiUsageScanner.parseLine(line(provider: "cursor", model: "mystery-model", cost: "0"))!
         let scan = PiUsageScanner.aggregate(entries: [entry], cardID: "cursor", since: .distantPast, pricing: .empty)
-        XCTAssertTrue(scan.series.daily.isEmpty)
+        XCTAssertEqual(scan.series.daily.first?.totalTokens, entry.reportedTotalTokens)
+        XCTAssertNil(scan.series.daily.first?.costUSD)
         XCTAssertEqual(scan.unknownModelsByDay["2026-07-12"], ["mystery-model"])
     }
 

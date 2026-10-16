@@ -2,7 +2,7 @@ import Foundation
 
 /// Event pricing stays separate from parsing: changing a preference reuses cached token events.
 /// Known rates always win; only unresolved, named events can use an explicitly selected reference.
-/// Unpriced usage remains excluded and warned about when no usable reference is selected.
+/// Unpriced usage counts its tokens without cost and is warned about when no usable reference is selected.
 extension CodexLogUsageScanner {
     // MARK: - Aggregation
 
@@ -22,7 +22,7 @@ extension CodexLogUsageScanner {
     ) -> LogUsageScan {
         let fallbackRates = fallbackModel.flatMap { pricing.fallbackRates(model: $0, providerID: "codex") }
         if fallbackModel != nil && fallbackRates == nil {
-            AppLog.warn(LogTag.plugin("codex"), "Selected fallback pricing is unavailable; unpriced usage remains excluded.")
+            AppLog.warn(LogTag.plugin("codex"), "Selected fallback pricing is unavailable; unpriced usage counts tokens without cost.")
         }
         var seen: Set<EventKey> = []
         var accumulator = DailyUsageAccumulator()
@@ -62,7 +62,10 @@ extension CodexLogUsageScanner {
                 appliesUltrafastTier = event.isUltrafast
                 usedFallback = fallbackModel
             }
-            guard let rates = resolvedRates else { continue }
+            guard let rates = resolvedRates else {
+                accumulator.addUnknownModel(day: day, model: model, tokens: event.total)
+                continue
+            }
             let eventCost = cost(
                 rates: rates, event: event, model: rateModel, fastTier: appliesCodexFastTier,
                 ultrafastTier: appliesUltrafastTier

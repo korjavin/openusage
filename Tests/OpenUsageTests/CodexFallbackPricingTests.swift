@@ -31,9 +31,10 @@ final class CodexFallbackPricingTests: XCTestCase {
               total: input + output, isFast: fast, isUltrafast: ultrafast)
     }
 
-    func testNoneExcludesUnpricedUsageAndKeepsWarnings() {
+    func testNoneCountsUnpricedTokensWithoutCostAndKeepsWarnings() {
         let result = CodexLogUsageScanner.aggregate(events: [event()], since: .distantPast, pricing: pricing())
-        XCTAssertTrue(result.series.daily.isEmpty)
+        XCTAssertEqual(result.series.daily.map(\.totalTokens), [1_100])
+        XCTAssertNil(result.series.daily.first?.costUSD)
         XCTAssertEqual(Set(result.unknownModelsByDay.values.flatMap { $0 }), ["unlisted-model-a"])
         XCTAssertNil(result.fallbackPricingModelsByDay)
     }
@@ -147,7 +148,8 @@ final class CodexFallbackPricingTests: XCTestCase {
         let result = CodexLogUsageScanner.aggregate(
             events: [event()], since: .distantPast, pricing: pricing(), fallbackModel: "unavailable-model"
         )
-        XCTAssertTrue(result.series.daily.isEmpty)
+        XCTAssertEqual(result.series.daily.map(\.totalTokens), [1_100])
+        XCTAssertNil(result.series.daily.first?.costUSD)
         XCTAssertFalse(result.unknownModelsByDay.isEmpty)
         XCTAssertNil(result.fallbackPricingModelsByDay)
     }
@@ -163,7 +165,7 @@ final class CodexFallbackPricingTests: XCTestCase {
         let none = await scanner.scan(now: now, pricing: pricing())
         let estimated = await scanner.scan(now: now, pricing: pricing(), fallbackModel: reference)
         let noneAgain = await scanner.scan(now: now, pricing: pricing())
-        XCTAssertTrue(try XCTUnwrap(none).series.daily.isEmpty)
+        XCTAssertNil(try XCTUnwrap(none).series.daily.first?.costUSD)
         XCTAssertEqual(estimated?.series.daily.first?.totalTokens, 1_100)
         XCTAssertEqual(estimated?.unknownModelsByDay, none?.unknownModelsByDay)
         XCTAssertEqual(noneAgain?.series, none?.series)

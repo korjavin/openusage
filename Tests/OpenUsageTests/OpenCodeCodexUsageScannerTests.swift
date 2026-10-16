@@ -193,7 +193,7 @@ final class OpenCodeCodexUsageScannerTests: XCTestCase {
         }
     }
 
-    func testUnknownOAuthModelIsExcludedAndWarned() async throws {
+    func testUnknownOAuthModelCountsTokensAndWarns() async throws {
         let rows = "[" + row(
             "2026-07-12T10:00:00.000Z", cost: "0", total: 150, model: "gpt-mystery",
             input: 100, output: 50
@@ -203,7 +203,7 @@ final class OpenCodeCodexUsageScannerTests: XCTestCase {
             rows: rows
         ).scan(now: now, pricing: .empty)
 
-        XCTAssertTrue(try XCTUnwrap(scan).series.daily.isEmpty)
+        XCTAssertEqual(try XCTUnwrap(scan).series.daily, [DailyUsageEntry(date: "2026-07-12", totalTokens: 150, costUSD: nil)])
         XCTAssertEqual(scan?.unknownModelsByDay["2026-07-12"], ["gpt-mystery"])
     }
 

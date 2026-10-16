@@ -259,7 +259,7 @@ actor AntigravityDbUsageScanner {
             }
         }
         accumulator.addUnknownModel(
-            day: day, model: candidates.first ?? Self.unknownModel
+            day: day, model: candidates.first ?? Self.unknownModel, tokens: total.partialValue
         )
     }
 

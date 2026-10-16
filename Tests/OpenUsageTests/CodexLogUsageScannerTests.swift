@@ -831,7 +831,7 @@ final class CodexLogUsageScannerTests: XCTestCase {
         XCTAssertEqual(long.series.daily.first?.costUSD ?? 0, 3.96, accuracy: 0.000_001)
     }
 
-    func testAggregateUnknownModelIsExcludedFromTotalsButWarns() {
+    func testAggregateUnknownModelCountsTokensButNotCostAndWarns() {
         let scan = CodexLogUsageScanner.aggregate(
             events: [
                 makeEvent("2026-05-12T08:00:00.000Z", model: "mystery-model-9"),
@@ -840,12 +840,13 @@ final class CodexLogUsageScannerTests: XCTestCase {
             since: .distantPast, pricing: fixedRates()
         )
 
-        // Unpriceable tokens never enter the displayed totals — they surface only through the
-        // warning triangle, so the tile's tokens and dollars stay coherent.
-        XCTAssertEqual(scan.series.daily.first?.totalTokens, 150)
+        // Unpriceable tokens count toward the totals with no cost; the warning triangle names them.
+        XCTAssertEqual(scan.series.daily.first?.totalTokens, 300)
         XCTAssertNotNil(scan.series.daily.first?.costUSD)
         XCTAssertEqual(scan.unknownModelsByDay["2026-05-12"], ["mystery-model-9"])
-        XCTAssertEqual(scan.modelUsage?.daily.first?.models.map(\.model), ["gpt-5.2"])
+        let models = scan.modelUsage?.daily.first?.models.sorted { $0.model < $1.model }
+        XCTAssertEqual(models?.map(\.model), ["gpt-5.2", "mystery-model-9"])
+        XCTAssertNil(models?.last?.costUSD)
     }
 
     func testAggregateUnknownModelOnlyLeavesDayUnbacked() {
@@ -854,11 +855,12 @@ final class CodexLogUsageScannerTests: XCTestCase {
             since: .distantPast, pricing: fixedRates()
         )
 
-        // A day with nothing priceable produces no series entry at all (→ "No data"), but the
-        // unknown-model warning still names what was excluded.
-        XCTAssertTrue(scan.series.daily.isEmpty)
+        // A day with nothing priceable still counts its tokens, with no cost.
+        XCTAssertEqual(scan.series.daily, [DailyUsageEntry(date: "2026-05-12", totalTokens: 150, costUSD: nil)])
         XCTAssertEqual(scan.unknownModelsByDay["2026-05-12"], ["mystery-model-9"])
-        XCTAssertEqual(scan.modelUsage?.daily ?? [], [])
+        XCTAssertEqual(scan.modelUsage?.daily.first?.models, [
+            ModelUsageEntry(model: "mystery-model-9", totalTokens: 150, costUSD: nil)
+        ])
     }
 
     func testAggregateFiltersEventsBeforeSince() {

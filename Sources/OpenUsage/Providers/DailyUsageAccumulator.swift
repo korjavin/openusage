@@ -7,9 +7,9 @@ import Foundation
 ///
 /// Days are keyed by the shared local-calendar `dayKey`, matching `SpendTileMapper`'s Today / Yesterday
 /// lookup — the day-key contract is one function, not five copies (drift here is the class of bug behind
-/// the ccusage false-zero fix). Only priced rows are added (every scanner skips unpriceable rows before
-/// counting), so every counted day carries a real cost; unpriceable models are tracked separately for
-/// the tile's warning triangle.
+/// the ccusage false-zero fix). Unpriceable rows still count their tokens (with no cost) so token totals
+/// stay real while pricing catches up with a new model; their names are tracked for the tile's warning
+/// triangle. A day with only unpriced rows has a nil cost.
 struct DailyUsageAccumulator {
     private var tokensByDay: [String: Int] = [:]
     private var costByDay: [String: Double] = [:]
@@ -48,9 +48,11 @@ struct DailyUsageAccumulator {
             }
             for day in scan.modelUsage?.daily ?? [] {
                 for model in day.models {
-                    // Skip cost-unknown entries rather than treating nil as $0 — their unknown-model
-                    // metadata is already carried through via unknownModelsByDay below.
-                    guard let cost = model.costUSD else { continue }
+                    // Keep cost-unknown entries' tokens without treating nil as $0.
+                    guard let cost = model.costUSD else {
+                        accumulator.addUnknownModel(day: day.date, model: model.model, tokens: model.totalTokens)
+                        continue
+                    }
                     accumulator.add(day: day.date, tokens: model.totalTokens, cost: cost, model: model.model)
                 }
             }
@@ -63,17 +65,21 @@ struct DailyUsageAccumulator {
         return accumulator.build()
     }
 
-    /// Note a model with no known price that carried tokens. The warning remains even when an
-    /// explicitly selected reference lets the caller include a fallback estimate in the totals.
-    mutating func addUnknownModel(day: String, model: String) {
+    /// Note a model with no known price and count its `tokens` with no cost. The warning remains even
+    /// when an explicitly selected reference lets the caller include a fallback estimate in the totals;
+    /// such callers pass `tokens: 0` since `add` counts those tokens.
+    mutating func addUnknownModel(day: String, model: String, tokens: Int = 0) {
         unknownModelsByDay[day, default: []].insert(model)
+        guard tokens > 0 else { return }
+        tokensByDay[day, default: 0] += tokens
+        modelsByDay[day, default: [:]][model, default: ModelAccumulator()].add(tokens: tokens, costUSD: nil)
     }
 
     /// Assemble the scan: per-day tokens/cost (days sorted newest-first), the per-day model breakdown,
-    /// and the unknown-model set. Every counted day is priced, so its `costUSD` is always the real total.
+    /// and the unknown-model set. A day's `costUSD` is the priced total, nil when nothing on it was priced.
     func build() -> LogUsageScan {
         let days = tokensByDay.keys.sorted(by: >).map { day in
-            DailyUsageEntry(date: day, totalTokens: tokensByDay[day] ?? 0, costUSD: costByDay[day] ?? 0)
+            DailyUsageEntry(date: day, totalTokens: tokensByDay[day] ?? 0, costUSD: costByDay[day])
         }
         let modelUsage = ModelUsageSeries(daily: modelsByDay.keys.sorted(by: >).map { day in
             DailyModelUsageEntry(

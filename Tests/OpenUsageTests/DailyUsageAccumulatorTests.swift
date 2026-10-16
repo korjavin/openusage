@@ -3,7 +3,7 @@ import XCTest
 
 /// Direct pins for the shared accumulate-then-assemble contract behind the Claude/Codex/Grok scanners
 /// (the class of drift behind the ccusage false-zero fix): one `dayKey` spelling, newest-first day
-/// order, per-model accumulation, always-priced days, and unknown models isolated from the series.
+/// order, per-model accumulation, and unpriced models counted with no cost.
 final class DailyUsageAccumulatorTests: XCTestCase {
     func testDayKeyUsesInjectedCalendarAndZeroPads() {
         var calendar = Calendar(identifier: .gregorian)
@@ -38,15 +38,28 @@ final class DailyUsageAccumulatorTests: XCTestCase {
         XCTAssertEqual(models["opus"]?.totalTokens, 10)
     }
 
-    func testUnknownModelsStayOutOfTheSeries() {
+    func testUnpricedModelTokensCountWithNilCost() {
         var accumulator = DailyUsageAccumulator()
-        accumulator.addUnknownModel(day: "2024-06-02", model: "mystery-model")
+        accumulator.addUnknownModel(day: "2024-06-02", model: "gemini-4-argon-trial", tokens: 500)
+        accumulator.add(day: "2024-06-01", tokens: 100, cost: 1.0, model: "sonnet")
+        accumulator.addUnknownModel(day: "2024-06-01", model: "mystery-model", tokens: 40)
+        // A warning-only call (a fallback estimate already counted the tokens) adds no tokens.
+        accumulator.addUnknownModel(day: "2024-06-01", model: "fallback-model")
 
         let scan = accumulator.build()
-        // A day with only unpriceable usage never enters the series or the model breakdown — it
-        // surfaces solely through the warning-triangle set.
-        XCTAssertTrue(scan.series.daily.isEmpty)
-        XCTAssertEqual(scan.modelUsage?.daily.isEmpty, true)
-        XCTAssertEqual(scan.unknownModelsByDay, ["2024-06-02": ["mystery-model"]])
+        XCTAssertEqual(scan.series.daily.map(\.totalTokens), [500, 140])
+        // An all-unpriced day has no cost rather than a false $0; a mixed day keeps its priced total.
+        XCTAssertNil(scan.series.daily[0].costUSD)
+        XCTAssertEqual(scan.series.daily[1].costUSD ?? -1, 1.0, accuracy: 0.0001)
+
+        let june2 = scan.modelUsage?.daily.first { $0.date == "2024-06-02" }?.models
+        XCTAssertEqual(june2, [ModelUsageEntry(model: "gemini-4-argon-trial", totalTokens: 500, costUSD: nil)])
+        XCTAssertEqual(scan.unknownModelsByDay["2024-06-01"], ["mystery-model", "fallback-model"])
+
+        // Merging replays unpriced entries instead of dropping their tokens.
+        let merged = DailyUsageAccumulator.merged([scan, nil])
+        XCTAssertEqual(merged?.series.daily.map(\.totalTokens), [500, 140])
+        XCTAssertNil(merged?.series.daily[0].costUSD)
+        XCTAssertEqual(merged?.unknownModelsByDay, scan.unknownModelsByDay)
     }
 }

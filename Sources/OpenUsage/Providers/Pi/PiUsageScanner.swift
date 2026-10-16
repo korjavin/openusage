@@ -177,7 +177,7 @@ actor PiUsageScanner {
                 cost = estimated
             } else {
                 if let model = trimmedModel, entry.reportedTotalTokens > 0 {
-                    accumulator.addUnknownModel(day: day, model: model)
+                    accumulator.addUnknownModel(day: day, model: model, tokens: entry.reportedTotalTokens)
                 }
                 continue
             }

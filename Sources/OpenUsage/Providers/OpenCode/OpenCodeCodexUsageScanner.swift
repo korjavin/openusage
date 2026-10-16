@@ -99,7 +99,7 @@ struct OpenCodeCodexUsageScanner: Sendable {
             }
             guard let prepared else {
                 if row.reportedTotalTokens > 0 {
-                    accumulator.addUnknownModel(day: day, model: model)
+                    accumulator.addUnknownModel(day: day, model: model, tokens: row.reportedTotalTokens)
                 }
                 continue
             }

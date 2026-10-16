@@ -98,7 +98,7 @@ final class GrokLogUsageScannerTests: XCTestCase {
         XCTAssertTrue(usage.unknownModelsByDay.isEmpty)
     }
 
-    func testUnknownModelWithoutRecordedCostIsExcludedAndWarns() {
+    func testUnknownModelWithoutRecordedCostCountsTokensAndWarns() {
         let line = GrokLogFixture.completedTurn(
             timestamp: "2026-06-10T10:00:00.000Z",
             model: "grok-future-model",
@@ -107,7 +107,9 @@ final class GrokLogUsageScannerTests: XCTestCase {
 
         let usage = scan(line)
 
-        XCTAssertTrue(usage.series.daily.isEmpty)
+        XCTAssertEqual(usage.series.daily.count, 1)
+        XCTAssertGreaterThanOrEqual(usage.series.daily.first?.totalTokens ?? 0, 500_000)
+        XCTAssertNil(usage.series.daily.first?.costUSD)
         XCTAssertEqual(usage.unknownModelsByDay["2026-06-10"], ["grok-future-model"])
     }
 

@@ -183,7 +183,7 @@ actor GrokLogUsageScanner {
                 ?? pricing.estimatedCostDollars(model: entry.model, tokens: entry.tokens)
             else {
                 if entry.tokens.totalTokens > 0 {
-                    accumulator.addUnknownModel(day: day, model: entry.model)
+                    accumulator.addUnknownModel(day: day, model: entry.model, tokens: entry.tokens.totalTokens)
                 }
                 continue
             }
