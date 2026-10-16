@@ -43,6 +43,8 @@ The model breakdown groups by model family: effort variants such as `gemini-3.1-
 
 Subagents that Antigravity launches with a model tier (`flash_lite`, `flash`, `pro`) are logged with a `-tiered` model ID, such as `gemini-3.7-flash-tiered`. That is the same model at the same rate, so it counts under the base model's row.
 
+Gemini 4 Argon trial, preview, and effort variants use the bundled [Argon API rates](../pricing.md) and share one `gemini-4-argon` breakdown row. Pricing updates also restore token counts and estimated spend for previously scanned local Argon conversations on refresh.
+
 The transcript logs don't include token accounting, so they aren't used. Missing or unpriced models aren't assigned an invented price, and unusually large generation records are skipped with a warning to keep memory usage bounded.
 
 ## Troubleshooting
