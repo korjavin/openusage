@@ -132,7 +132,13 @@ final class AntigravityProvider: ProviderRuntime {
         ) {
             return result
         }
-        if let result = await probeLS(processName: "agy", markers: [], csrfFlag: "", portFlag: nil) {
+        // agy guards its RPCs with the same CSRF header as the IDE's server; without it every call 401s.
+        if let result = await probeLS(
+            processName: "agy",
+            markers: [],
+            csrfFlag: "--csrf_token",
+            portFlag: "--extension_server_port"
+        ) {
             return result
         }
         return try await probeCloudCode()

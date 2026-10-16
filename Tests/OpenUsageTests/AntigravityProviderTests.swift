@@ -242,6 +242,26 @@ final class AntigravityProviderTests: XCTestCase {
         XCTAssertEqual(candidates.map(\.pid), [4276])
     }
 
+    func testDiscoverReadsAgyCsrfAndPortFlagsAndToleratesTheirAbsence() {
+        let options = LanguageServerDiscovery.Options(
+            processName: "agy",
+            markers: [],
+            csrfFlag: "--csrf_token",
+            portFlag: "--extension_server_port"
+        )
+        let withFlags = LanguageServerDiscovery(processRunner: StubProcessRunner(
+            ps: "900 /Users/x/.local/bin/agy --csrf_token tok --extension_server_port 61000\n"
+        )).discover(options)
+        XCTAssertEqual(withFlags?.csrf, "tok")
+        XCTAssertEqual(withFlags?.extensionPort, 61000)
+
+        let bare = LanguageServerDiscovery(processRunner: StubProcessRunner(
+            ps: "900 /Users/x/.local/bin/agy\n"
+        )).discover(options)
+        XCTAssertEqual(bare?.csrf, "")
+        XCTAssertNil(bare?.extensionPort)
+    }
+
     // MARK: - Keychain token extraction
 
     func testExtractTokenFromGoKeyringWrappedJSON() {
@@ -437,6 +457,15 @@ final class AntigravityProviderTests: XCTestCase {
 struct EmptyProcessRunner: ProcessRunning {
     func run(executable: String, arguments: [String], environment: [String: String], timeout: TimeInterval) throws -> ProcessResult {
         ProcessResult(exitCode: 0, stdout: "", stderr: "")
+    }
+}
+
+/// Serves a fixed `ps` listing and one listening port for every `lsof` call.
+struct StubProcessRunner: ProcessRunning {
+    let ps: String
+    func run(executable: String, arguments: [String], environment: [String: String], timeout: TimeInterval) throws -> ProcessResult {
+        if executable.hasSuffix("/ps") { return ProcessResult(exitCode: 0, stdout: ps, stderr: "") }
+        return ProcessResult(exitCode: 0, stdout: "agy 900 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:52168 (LISTEN)\n", stderr: "")
     }
 }
 

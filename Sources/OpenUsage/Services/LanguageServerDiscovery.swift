@@ -14,7 +14,7 @@ struct LanguageServerDiscovery: Sendable {
         /// Lowercased marker values matched against `--app_data_dir` / `--ide_name` / `--override_ide_name`
         /// (exact), falling back to a `/marker/` path substring. Empty means "match any instance".
         var markers: [String]
-        /// Flag whose value is the CSRF token (e.g. `--csrf_token`). Empty means the process has none.
+        /// Flag whose value is the CSRF token (e.g. `--csrf_token`). Absent from argv means the process has none.
         var csrfFlag: String
         /// Optional flag carrying an HTTP fallback port (e.g. `--extension_server_port`).
         var portFlag: String?
@@ -49,14 +49,8 @@ struct LanguageServerDiscovery: Sendable {
         let lsofPath = ["/usr/sbin/lsof", "/usr/bin/lsof"].first { FileManager.default.fileExists(atPath: $0) }
 
         for candidate in candidates {
-            let csrf: String
-            if options.csrfFlag.trimmingCharacters(in: .whitespaces).isEmpty {
-                csrf = ""
-            } else if let value = Self.extractFlag(command: candidate.command, flag: options.csrfFlag) {
-                csrf = value
-            } else {
-                continue
-            }
+            // A missing flag means the process runs without CSRF (e.g. older agy builds) — send no token.
+            let csrf = Self.extractFlag(command: candidate.command, flag: options.csrfFlag) ?? ""
 
             let extensionPort = options.portFlag
                 .flatMap { Self.extractFlag(command: candidate.command, flag: $0) }
