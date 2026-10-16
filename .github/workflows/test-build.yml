@@ -1,0 +1,30 @@
+name: Test Build
+
+# Unsigned (ad-hoc) OpenUsage.app for manual testing — no Apple secrets needed.
+# Run: gh workflow run test-build.yml -R korjavin/openusage -f ref=<branch>
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch/tag/SHA to build"
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - run: sudo xcode-select -s /Applications/Xcode.app
+      - run: script/build_and_run.sh build
+      - run: ditto -c -k --keepParent dist/OpenUsage.app OpenUsage.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUsage-app
+          path: OpenUsage.zip
