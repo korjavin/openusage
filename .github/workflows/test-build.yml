@@ -25,7 +25,8 @@ jobs:
       - run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)" && xcodebuild -version
       - run: script/build_and_run.sh build
       - run: ditto -c -k --keepParent dist/OpenUsage.app OpenUsage.zip
-      - uses: actions/upload-artifact@v4
+      # archive: false uploads the ditto zip as-is (symlinks/exec bits intact) instead of zipping it again.
+      - uses: actions/upload-artifact@v7
         with:
-          name: OpenUsage-app
           path: OpenUsage.zip
+          archive: false
